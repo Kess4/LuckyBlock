@@ -1,0 +1,277 @@
+<script>
+
+import BlockR from '../assets/blockr.svg'
+import BlockB from '../assets/blockb.svg'
+import BlockG from '../assets/blockg.svg'
+import Web3 from 'web3'
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await chargerContrat();
+    rafraichirInformations();
+    initializeWeb3();
+});
+
+let contrat;
+let compte;
+
+async function chargerContrat() {
+    // Initialiser Web3.js
+    if (window.ethereum) {
+        window.web3 = new Web3(ethereum);
+        try {
+            // Demander l'autorisation à l'utilisateur
+            await ethereum.enable();
+        } catch (error) {
+            console.error("L'utilisateur a refusé l'autorisation pour Web3");
+        }
+    } else if (window.web3) {
+        window.web3 = new Web3(web3.currentProvider);
+    } else {
+        console.error("Aucun fournisseur Web3 détecté. Veuillez utiliser MetaMask.");
+    }
+
+    // Charger le contrat
+    const adresseContrat = '0x22C107F58dcE8cb0cff66a637F593A16dEa44c15'; // Adresse réelle du contrat
+    const abiContrat = [[
+        {
+            "inputs": [],
+            "name": "effectuerTirage",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "envoyerFonds",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "participer",
+            "outputs": [],
+            "stateMutability": "payable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "stateMutability": "nonpayable",
+            "type": "constructor"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                {
+                    "indexed": false,
+                    "internalType": "address",
+                    "name": "gagnant",
+                    "type": "address"
+                }
+            ],
+            "name": "TirageEffectue",
+            "type": "event"
+        },
+        {
+            "inputs": [],
+            "name": "gagnant",
+            "outputs": [
+                {
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "montantDuTirage",
+            "outputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "nombreParticipants",
+            "outputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "name": "participants",
+            "outputs": [
+                {
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "proprietaire",
+            "outputs": [
+                {
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ]]; // ABI réelle du contrat
+
+    contrat = new web3.eth.Contract(abiContrat, adresseContrat);
+
+    // Vérifier si le compte est connecté à MetaMask
+    const comptes = await web3.eth.getAccounts();
+    compte = comptes.length > 0 ? comptes[0] : null;
+
+    // Mettre à jour l'interface utilisateur en fonction de la connexion
+    mettreAJourInterfaceUtilisateur();
+}
+
+async function rafraichirInformations() {
+    // Mettre à jour le nombre de participants
+    const nombreParticipants = await contrat.methods.nombreParticipants().call();
+    document.getElementById('nombreParticipants').innerText = nombreParticipants;
+
+    // Mettre à jour le montant du tirage
+    const montantDuTirage = await contrat.methods.montantDuTirage().call();
+    document.getElementById('montantDuTirage').innerText = web3.utils.fromWei(montantDuTirage, 'ether');
+
+    // Mettre à jour l'interface utilisateur en fonction de la connexion
+    mettreAJourInterfaceUtilisateur();
+}
+
+async function participer() {
+      try {
+        const participationTx = await contrat.methods.participer().send({ from: compte, value: web3.utils.toWei('0.001', 'ether') });
+        console.log(participationTx);
+        rafraichirInformations();
+    } catch (error) {
+        console.error("Erreur lors de la participation:", error);
+    }
+}
+
+async function effectuerTirage() {
+    try {
+        const tirageTx = await contrat.methods.effectuerTirage().send({ from: compte });
+        console.log(tirageTx);
+        rafraichirInformations();
+    } catch (error) {
+        console.error("Erreur lors de l'effetuation du tirage:", error);
+    }
+}
+
+async function envoyerFonds() {
+    try {
+        const envoiFondsTx = await contrat.methods.envoyerFonds().send({ from: compte });
+        console.log(envoiFondsTx);
+        rafraichirInformations();
+    } catch (error) {
+        console.error("Erreur lors de l'envoi des fonds:", error);
+    }
+}
+
+function mettreAJourInterfaceUtilisateur() {
+    // Mettre à jour le bouton de connexion en fonction de l'état de la connexion
+    const boutonConnexion = document.getElementById('btnConnexion');
+    if (compte) {
+        boutonConnexion.innerText = `Connecté (Adresse: ${compte})`;
+        boutonConnexion.disabled = true;
+    } else {
+        boutonConnexion.innerText = "Se Connecter avec MetaMask";
+        boutonConnexion.disabled = false;
+    }
+}
+
+export default {
+  data() {
+    return {
+      items: [
+        { title: 'Block 1', src: BlockG, price : "0.001 ETH"},
+        { title: 'Block 2', src: BlockB, price : "0.002 ETH" },
+        { title: 'Block 3', src: BlockR, price : "0.005 ETH" },
+      ],
+      web3: null,
+    };
+  },
+
+  mounted() {
+    this.initializeWeb3();
+  },
+
+  methods: {
+
+    
+    async initializeWeb3() {
+      if (window.ethereum) {
+        this.web3 = new Web3(window.ethereum);
+        try {
+          await window.ethereum.enable();
+        } catch (error) {
+          console.error("L'utilisateur a refusé l'accès au compte");
+        }
+      } else if (window.web3) {
+        this.web3 = new Web3(window.web3.currentProvider);
+        console.log("Injected web3 detected.");
+      } else {
+        console.error("Non-Ethereum browser detected. You should consider trying MetaMask!");
+      }
+    },
+  },
+
+  
+};
+</script>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tirage au Sort DApp</title>
+</head>
+<body>
+    <h1>Tirage au Sort DApp</h1>
+    
+    <div>
+        <button onclick="participer()">Participer (0.001 ETH)</button>
+        <p>Nombre de Participants: <span id="nombreParticipants"></span></p>
+    </div>
+
+    <div>
+        <button onclick="effectuerTirage()">Effectuer le Tirage</button>
+        <p>Montant du Tirage: <span id="montantDuTirage"></span> ETH</p>
+    </div>
+
+    <div>
+        <button onclick="envoyerFonds()">Envoyer les Fonds</button>
+    </div>
+
+</body>
+</html>
